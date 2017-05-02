@@ -44,7 +44,8 @@ class Connection(object):
 @click.option('--var', multiple=True, type=VarType())
 @click.option('--dry-run', is_flag=True, default=False)
 @click.option('--output-path', required=False, type=click.Path())
-def main(config, var, output_path, dry_run):
+@click.option('--wait', is_flag=True, default=True)
+def main(config, var, output_path, dry_run, wait):
     base_path = os.path.dirname(config.name)
     config = yaml.load(config)
     template_vars = dict(var)
@@ -71,14 +72,14 @@ def main(config, var, output_path, dry_run):
     # Run the deployment
     if not dry_run:
         try:
-            start_deployment(config, connection, task_definitions)
+            start_deployment(config, connection, task_definitions, wait)
         except DeploymentFailed:
             sys.exit(1)
 
     sys.exit(0)
 
 
-def start_deployment(config, connection, task_definitions):
+def start_deployment(config, connection, task_definitions, wait):
     """Start the deployment.
 
     The following steps are executed:
@@ -86,7 +87,7 @@ def start_deployment(config, connection, task_definitions):
     1. The task definitions are registered with AWS
     2. The before_deploy tasks are started
     3. The services are updated to reference the last task definitions
-    4. The client poll's AWS until all deployments are finished.
+    4. The client poll's AWS until all deployments are finished
     5. The after_deploy tasks are started.
 
     """
@@ -131,11 +132,15 @@ def start_deployment(config, connection, task_definitions):
                 service=service_name,
                 taskDefinition=task_definition['name'])
 
-    is_finished = wait_for_deployments(
-        connection, cluster_name, services.keys())
+    if not wait:
+        logger.info("Not waiting for deployments")
+    else:
+        # Wait until all deployments in each service are finished
+        is_finished = wait_for_deployments(
+            connection, cluster_name, services.keys())
 
-    if not is_finished:
-        raise DeploymentFailed("Timeout")
+        if not is_finished:
+            raise DeploymentFailed("Timeout")
 
     # Run tasks after deploying services
     tasks_after_deploy = config.get('after_deploy', [])
@@ -147,7 +152,7 @@ def wait_for_deployments(connection, cluster_name, service_names):
     """Poll ECS until all deployments are finished (status = PRIMARY)
 
     """
-    logger.info("Waiting for deployments")
+    logger.info("Waiting for services, deployment finished")
     start_time = time.time()
 
     def service_description(service):

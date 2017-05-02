@@ -40,6 +40,7 @@ Usage
       --var VAR
       --dry-run
       --output-path PATH
+      --wait
       --help              Show this message and exit.
 
 
