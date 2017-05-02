@@ -152,7 +152,7 @@ def wait_for_deployments(connection, cluster_name, service_names):
     """Poll ECS until all deployments are finished (status = PRIMARY)
 
     """
-    logger.info("Waiting for services, deployment finished")
+    logger.info("Waiting for deployments")
     start_time = time.time()
 
     def service_description(service):
